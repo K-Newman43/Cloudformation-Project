@@ -1,0 +1,10 @@
+Resources:
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-0cbe318e714fc9a82 
+      AvailabilityZone: us-west-1b 
+      Tags:
+        - Key: Name
+          Value: Kendrick
