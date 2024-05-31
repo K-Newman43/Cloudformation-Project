@@ -1,0 +1,4 @@
+AWS cloudformation create-stack \
+  --stack-name kenteststack \
+  --template-body file://"file://"/Users/kendricknewman/Library/Mobile Documents/com~apple~CloudDocs/my-first-Ec2-tempate copy-yaml"" \
+  --region us-west-1    
