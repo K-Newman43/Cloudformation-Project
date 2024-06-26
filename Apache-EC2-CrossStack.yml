@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  AWS CloudFormation Template to deploy a Linux EC2 instance with Apache
+  installed. This template references an existing VPC, Public Subnet, and
+  Security Group from a separate network stack.
+
+Parameters:
+  VPC:
+    Type: 'AWS::EC2::VPC::Id'
+    Description: Existing VPC ID 
+    Default: vpc-07169bd178d93b8fb
+
+  PublicSubnet:
+    Type: 'AWS::EC2::Subnet::Id'
+    Description: Existing public subnet ID
+    Default: subnet-07fcb517d3d3144fd
+
+  InstanceType:
+    Type: String
+    Description: EC2 instance type
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+      - t2.small
+      - t2.medium
+      - t3.medium
+    ConstraintDescription: Must be a valid EC2 instance type.
+
+  AMIId:
+    Type: String
+    Description: The AMI ID for the instance
+    Default: ami-01572eda7c4411960
+
+  KeyName:
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    Description: The name of an existing EC2 KeyPair 
+    ConstraintDescription: West2 Key
+
+  InstanceNameTag:
+    Type: String
+    Description: Name of the EC2 instance
+    Default: MyApacheServer
+
+  EnvironmentTag:
+    Type: String
+    Description: The environment tag for the EC2 instance
+    Default: Test
+
+Mappings: 
+  RegionMap:
+    us-east-1:
+      AMI: "ami-01b799c439fd5516a"
+    us-west-1:
+      AMI: "ami-0124ee9682f33ad99"
+    us-east-2:
+      AMI: "ami-07d7e3e669718ab45"
+    us-west-2:
+      AMI: "ami-01572eda7c4411960"
+
+Resources:
+  myEIP:
+    Type: 'AWS::EC2::EIP'
+
+  EC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref "AWS::Region"
+        - AMI
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          SubnetId: !Ref PublicSubnet
+          GroupSet:
+            - !GetAtt WebServerSecurityGroup.GroupId
+          AssociatePublicIpAddress: 'true'
+      UserData:
+        Fn::Base64: !Sub |
+         #!/bin/bash
+         yum update -y
+         yum install httpd -y
+         echo '<html><body><h1 style="color:purple;">This Is a great mini-project on Cloudformation. Cloudio, Idriss and Narcisse are great instuctorsWe face difficulties, Aca (Blue)</h1><img src="https://www.pixelstalk.net/wp-content/uploads/2016/07/3840x2160-Images-Free-Download.jpg" alt="New Image"></body></html>' > /var/www/html/index.html
+         systemctl start httpd
+         systemctl enable httpd
+        
+      Tags:
+        - Key: Name
+          Value: !Ref InstanceNameTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EIPAssociation:
+    Type: 'AWS::EC2::EIPAssociation'
+    Properties:
+      InstanceId: !Ref EC2Instance
+      EIP: !Ref myEIP
+
+  WebServerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable HTTP ingress
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+
+Outputs:
+  InstanceId:
+    Description: The ID of the EC2 instance
+    Value: !Ref EC2Instance
+    Export:
+      Name: !Sub '${AWS::StackName}-InstanceID'
+
+  InstancePublicIp:
+    Description: The public IP address of the EC2 instance
+    Value: !Ref myEIP
+    Export:
+      Name: !Sub '${AWS::StackName}-InstancePublicIP'
+
+  VPCId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VPCID'
+
+  PublicSubnetId:
+    Description: The subnet ID to use for public web servers
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}-SubnetID'
+
+  WebServerSecurityGroupId:
+    Description: The security group ID to use for public web servers
+    Value: !GetAtt WebServerSecurityGroup.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupID'
+
+  PrivateIPAddress:
+    Description: 'The private IP address of the EC2 instance'
+    Value: !GetAtt EC2Instance.PrivateIp
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivateIp'
+
+  PublicDNSName:
+    Description: 'The public DNS name of the EC2 instance'
+    Value: !GetAtt EC2Instance.PublicDnsName
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicDnsName'
